@@ -1,0 +1,89 @@
+#!/bin/bash/
+
+# This sysctl is very important, and tells Linux do do all the fun stuff that makes it do fast routing
+rm -rf /etc/sysctl.d/*
+
+curl -o /etc/sysctl.conf https://github.com/Prestige-Technology-Systems/linux-router/sysctl.conf
+
+#Make it active now
+sysctl -p /etc/sysctl.conf
+
+#Re-configure systemd-resolved for proper dns
+curl -o /etc/systemd/resolved.conf https://github.com/Prestige-Technology-Systems/linux-router/etc-systemd-resolved
+systemctl daemon-reload
+systemctl restart systemd-resolved
+resolvectl status
+
+#get rid of apparmor
+systemctl stop apparmor & systemctl disable apparmor
+
+#Fix rsyslog
+curl -o /etc/rsyslog.conf https://github.com/Prestige-Technology-Systems/linux-router/etc-rsyslog-conf && systemctl restart rsyslog
+
+#Network d distapther is a great place to run command and do things like ethtool type stuff/ These are important
+curl -o /etc/networkd-dispatcher/routable.d/50-ixpfarm https://github.com/Prestige-Technology-Systems/linux-router/networkd-dispatcher
+chmod +x /etc/networkd-dispatcher/routable.d/50-ixpfarm
+
+#Make it active
+systemctl restart networkd-dispatcher.service
+
+#Increase limits on file system
+curl -o /etc/security/limits.conf https://github.com/Prestige-Technology-Systems/linux-router/etc-security-limits
+
+#Add some keys and repos - this is for Ubuntu
+curl -fsSL https://www.mellanox.com/downloads/ofed/RPM-GPG-KEY-Mellanox | gpg --dearmor -o /usr/share/keyrings/mellanox.gpg
+curl -fsSL https://deb.frrouting.org/frr/keys.asc | gpg --dearmor -o /usr/share/keyrings/frr.gpg
+#curl -fsSL https://packages.nlnetlabs.nl/aptkey.asc | sudo gpg --dearmor -o /usr/share/keyrings/nlnetlabs-archive-keyring.gpg
+
+curl -o /etc/apt/sources.list.d/frr.list https://github.com/Prestige-Technology-Systems/linux-router/frr.list
+curl -o /etc/apt/sources.list.d/mellanox_mlnx_doca.list https://github.com/Prestige-Technology-Systems/linux-router/mellanox_mlnx_doca.list
+#curl -o /etc/apt/sources.list.d/routinator-nlnetlabs.list https://github.com/Prestige-Technology-Systems/linux-router/routinator-nlnetlabs.list
+#curl -s https://packagecloud.io/install/repositories/ookla/speedtest-cli/script.deb.sh | sudo bash
+
+#Remove old nvidia ofed drivers
+apt -y remove mlnx-tools mlnx-iproute2 mlnx-tools mlnx-ofed-all ofed-scripts libipathverbs1 librdmacm1 libibverbs1 libmthca1 libopenmpi-dev openmpi-bin openmpi-common openmpi-doc libmlx4-1 rdmacm-utils ibverbs-utils infiniband-diags ibutils perftest
+
+#Install everthing we need
+apt update && apt -y install linux-generic-hwe-24.04 linux-image-extra-virtual-hwe-24.04 qemu-guest-agent iptables-persistent doca-networking frr frr-pythontools frr-rpki-rtrlib frr-snmp prometheus-frr-exporter radvd tuned libnuma-dev libnuma1 linux-modules-extra-`uname -r`
+
+#We do not need openvswitch. Disable it
+systemctl stop openvswitch-switch.service && systemctl disable openvswitch-switch.service
+
+#Tweak prometheus-frr-exporter config
+curl -o /etc/default/prometheus-frr-exporter https://github.com/Prestige-Technology-Systems/linux-router/etc-default-prometheus-frr-exporter
+
+#restart prometheus-frr-exporter
+systemctl restart prometheus-frr-exporter.service
+
+#Setup cake or FQ on the sriov interfaces - change "40Gbit ethernet" to your needs
+#tc qdisc delete root dev enp10s0
+#tc qdisc add root dev enp10s0 cake bandwidth 99Gbit ether-vlan diffserv4 regional rtt 30
+#tc -s qdisc show dev enp10s0
+
+#tc qdisc delete root dev enp11s0
+#tc qdisc add root dev enp11s0 cake bandwidth 99Gbit ether-vlan diffserv4 regional rtt 30
+#tc -s qdisc show dev enp11s0
+
+# Fq will be our default
+tc qdisc add dev enp10s0 root fq
+tc qdisc add dev enp11s0 root fq
+
+# Set the Tuned profile
+tuned-adm profile network-throughput
+
+#Setup Iptables and Ip6tables - tune to your needs, do not mess with forwarding
+
+curl -o /etc/iptables/rules.v4 https://github.com/Prestige-Technology-Systems/linux-router/etc-iptables-v4
+curl -o /etc/iptables/rules.v6 https://github.com/Prestige-Technology-Systems/linux-router/etc-iptables-v6
+
+#Restart iptables
+systemctl restart iptables & systemctl restart ip6tables && iptables -L -n
+
+#Setup Mellanox for High Throghput
+mlnx_tune -p HIGH_THROUGHPUT
+
+# Setup FRR for BGP & BFD, increase some buffers and defaults
+curl -o /etc/frr/daemons https://github.com/Prestige-Technology-Systems/linux-router/etc-frr-daemons
+
+# Here is a netplan config for ubuntu that will help setup vlans and bonding etc
+curl -o /etc/netplan/50-cloud-init.yaml https://github.com/Prestige-Technology-Systems/linux-router/etc-netplan-cloud-init
