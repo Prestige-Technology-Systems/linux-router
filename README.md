@@ -4,7 +4,7 @@ Linux BGP Router
 This is a repository for a scalable linux router. The point of this router is to do fast bgp routing, use standards, forward packets as fast as possible, be very scalable, and to do it with as little complexity as possible.
 
 - Virtual Machine - Recommended 8cpu / 16gb ram / 40gb hdd
-- Ubuntu 24.04.3
+- Ubuntu 24.04.3 - https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
 - Mellanox Connectx4/5/6/7 setup on host with sriov
 - Virtual Platform of you liking - Ours is built in Harvester and Rancher.
 
