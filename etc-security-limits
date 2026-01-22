@@ -1,0 +1,32 @@
+#
+#install: curl -o /etc/security/limits.conf https://github.com/Prestige-Technology-Systems/linux-router/etc-security-limits
+#
+#<domain>      <type>  <item>         <value>
+#
+
+#*               soft    core            0
+#root            hard    core            100000
+#*               hard    rss             10000
+#@student        hard    nproc           20
+#@faculty        soft    nproc           20
+#@faculty        hard    nproc           50
+#ftp             hard    nproc           0
+#ftp             -       chroot          /ftp
+#@student        -       maxlogins       4
+
+* soft memlock unlimited
+* hard memlock unlimited
+* soft     nproc            100000
+* hard     nproc            100000
+* soft     nofile           100000
+* hard     nofile           100000
+root soft     nproc         100000
+root hard     nproc         100000
+root soft     nofile        100000
+root hard     nofile        100000
+frr soft     nproc          100000
+frr hard     nproc          100000
+frr soft     nofile         100000
+frr hard     nofile         100000
+
+# End of file
