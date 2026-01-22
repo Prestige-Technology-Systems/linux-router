@@ -1,0 +1,71 @@
+#
+#before installing this take a look at your intefaces, they might be different. This is mellanox sr-iov
+#
+#install: curl -o /etc/netplan/50-cloud-init.yaml http://https://github.com/Prestige-Technology-Systems/linux-router/etc-netplan-cloud-init 
+#
+# If using cloud-init for networking do this:
+# edit /etc/cloud/cloud.cfg.d/99-disable-network-config.cfg with the following:
+# network: {config: disabled}
+# If all else fails revert back to this
+#network:
+# ethernets:
+#    enp1s0:
+#      dhcp4: true
+#  version: 2
+########################################
+#
+network:
+  vrfs:
+    mgmt-vrf:
+      table: 10
+      interfaces: [enp1s0]
+      #put management interface into a vrf
+  bonds:
+    bond0:
+      mtu: 9000
+      interfaces:
+      - enp10s0
+      - enp11s0
+      parameters:
+        mode: active-backup
+        mii-monitor-interval: 100ms
+        transmit-hash-policy: layer3+4
+  ethernets:
+    lo:
+      match:
+        name: lo
+      addresses:
+      - x.x.x.x/32
+      - x:x:x:x:x:x:x/128
+    enp10s0:
+      mtu: 9000
+    enp11s0:
+      mtu: 9000
+    enp1s0:
+      dhcp4: true
+      dhcp4-overrides:
+        route-metric: 222
+      accept-ra: no
+  vlans:
+    bond0.999:
+      # vlan 999 some vlan that goes somewhere
+      link: bond0
+      id: 300
+      mtu: 1500
+      addresses:
+      - x.x.x.x/24
+      - xxxx:xxxx:xxxx:999::xxxx/64
+      link-local: [ ipv6 ]
+      accept-ra: no
+      ipv6-privacy: off
+    bond0.2010:
+      #local backbone vlan for interconnecting nodes - use your own ipv6 only
+      link: bond0
+      id: 2010
+      mtu: 9000
+      addresses:
+      - xxxx:xxxx:xxxx:2010:x:x:x:x:/64
+      link-local: [ ipv6 ]
+      accept-ra: no
+      ipv6-privacy: off
+  version: 2
